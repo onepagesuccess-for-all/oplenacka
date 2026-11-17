@@ -195,24 +195,32 @@ nav {
 /* LIGHTBOX */
 .lightbox {
   display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(10,10,15,0.96); align-items:center; justify-content:center;
-  padding:2rem; touch-action:pan-y;
+  background:rgba(10,10,15,0.97); align-items:center; justify-content:center;
+  padding:2rem; touch-action:pinch-zoom; overscroll-behavior:contain;
+  -webkit-user-select:none; user-select:none;
 }
 .lightbox.open { display:flex; }
 .lightbox img {
   max-width:92vw; max-height:88vh; object-fit:contain; display:block;
   box-shadow:0 20px 60px rgba(0,0,0,.5);
+  -webkit-user-drag:none; will-change:transform;
 }
+.lightbox.loading::after {
+  content:''; position:absolute; top:50%; left:50%; width:38px; height:38px; margin:-19px 0 0 -19px;
+  border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%;
+  animation:lbSpin .8s linear infinite; pointer-events:none;
+}
+@keyframes lbSpin { to { transform:rotate(360deg); } }
 .lightbox-close {
-  position:absolute; top:1.5rem; right:2rem; z-index:2;
-  background:none; border:1px solid var(--border); color:var(--white);
+  position:absolute; top:1.5rem; right:2rem; z-index:3;
+  background:rgba(10,10,15,.6); border:1px solid var(--border); color:var(--white);
   width:44px; height:44px; font-size:1.4rem; line-height:1; cursor:pointer;
   display:flex; align-items:center; justify-content:center; transition:all .2s;
 }
 .lightbox-close:hover { border-color:var(--gold); color:var(--gold); }
 .lightbox-nav {
-  position:absolute; top:50%; transform:translateY(-50%);
-  background:none; border:1px solid var(--border); color:var(--white);
+  position:absolute; top:50%; transform:translateY(-50%); z-index:3;
+  background:rgba(10,10,15,.6); border:1px solid var(--border); color:var(--white);
   width:48px; height:48px; font-size:1.4rem; cursor:pointer;
   display:flex; align-items:center; justify-content:center; transition:all .2s;
 }
@@ -221,11 +229,21 @@ nav {
 .lightbox-next { right:1.5rem; }
 .lightbox-counter {
   position:absolute; bottom:1.5rem; left:50%; transform:translateX(-50%);
-  color:var(--gray); font-size:.78rem; letter-spacing:1px;
+  color:var(--gray); font-size:.78rem; letter-spacing:1px; z-index:3;
 }
 .prop-main-img { cursor:pointer; }
 .gal-grid > * { cursor:pointer; }
+/* dok se slika učitava: zlatni "shimmer" umesto praznog polja i bez teksta slike */
+.prop-main-img, .gal-grid > div {
+  background:linear-gradient(100deg, var(--dark2) 30%, #23233a 50%, var(--dark2) 70%);
+  background-size:300% 100%; animation:imgShimmer 1.4s ease-in-out infinite;
+}
+.prop-main-img img, .gal-grid img { color:transparent; opacity:0; transition:opacity .4s ease, transform .4s ease; }
+.prop-main-img img.loaded, .gal-grid img.loaded { opacity:1; }
+@keyframes imgShimmer { from{background-position:100% 0;} to{background-position:0 0;} }
 @media (max-width:640px) {
+  .lightbox { padding:0; }
+  .lightbox img { max-width:100vw; max-height:82vh; box-shadow:none; }
   .lightbox-nav { width:38px; height:38px; font-size:1.1rem; }
   .lightbox-prev { left:.5rem; }
   .lightbox-next { right:.5rem; }
@@ -252,14 +270,37 @@ footer {
 @media (max-width:700px) { footer { flex-direction:column; text-align:center; } }
 </style>
 <script>
-/* Slike: probaj redom sve nastavke dok se slika ne učita */
+/* SLIKE — važan je samo broj; nastavak (.jpg, .jpeg, .png, .webp...) se pronalazi sam.
+   Kad se nađe nastavak koji radi, on se prvi proba za sve ostale slike. */
+var IMG_BASE='/oplenacka/images/';
 var IMG_EXTS=['jpg','jpeg','JPG','JPEG','png','PNG','webp','WEBP'];
+var imgFound={};   /* broj -> adresa koja radi */
+var goodExt=null;
+function extOf(u){ var m=(u||'').match(/\.([A-Za-z]+)(\?.*)?$/); return m?m[1]:null; }
+function extOrder(){ var a=IMG_EXTS.slice(); if(goodExt){ a.splice(a.indexOf(goodExt),1); a.unshift(goodExt); } return a; }
+function imgOk(img){
+  if(!img.naturalWidth) return;
+  var n=img.getAttribute('data-n'); if(!n) return;
+  imgFound[n]=img.src; goodExt=extOf(img.src)||goodExt;
+  img.classList.add('loaded');
+  /* ista slika na drugim mestima (naslovna = slika 1 iz galerije) */
+  var same=document.querySelectorAll('img[data-n="'+n+'"]');
+  for(var i=0;i<same.length;i++){ var o=same[i]; if(o!==img && !(o.complete && o.naturalWidth>0)){ o.setAttribute('data-tried',''); o.src=img.src; } }
+  if(img.id==='lightbox-img'){ var lb=document.getElementById('lightbox'); if(lb) lb.classList.remove('loading'); }
+}
 function fixImg(img){
-  var n=img.getAttribute('data-n');
-  var i=parseInt(img.getAttribute('data-ext-i')||'0',10)+1;
-  if(i>=IMG_EXTS.length){ img.onerror=null; return; }
-  img.setAttribute('data-ext-i',i);
-  img.src='/oplenacka/images/'+n+'.'+IMG_EXTS[i];
+  var n=img.getAttribute('data-n'); if(!n) return;
+  if(imgFound[n] && img.src!==imgFound[n]){ img.src=imgFound[n]; return; }
+  var tried=(img.getAttribute('data-tried')||'').split(',').filter(Boolean);
+  var cur=extOf(img.src); if(cur && tried.indexOf(cur)<0) tried.push(cur);
+  img.setAttribute('data-tried',tried.join(','));
+  var next=extOrder().filter(function(e){ return tried.indexOf(e)<0; })[0];
+  if(!next){ if(img.id==='lightbox-img'){ var lb=document.getElementById('lightbox'); if(lb) lb.classList.remove('loading'); } return; }
+  img.src=IMG_BASE+n+'.'+next;
+}
+function loadImg(img,n){
+  img.setAttribute('data-n',n); img.setAttribute('data-tried','');
+  img.src=imgFound[n] || (IMG_BASE+n+'.'+(goodExt||'jpg'));
 }
 </script>
 </head>
@@ -283,7 +324,7 @@ function fixImg(img){
   <div class="prop-loc">📍 <span>Rakovica</span> · Oplenačka, Petlovo brdo</div>
 
   <div class="prop-main-img" onclick="openLightbox(0)">
-    <img src="/oplenacka/images/1.jpg" data-n="1" onerror="fixImg(this)" alt="Oplenačka, Rakovica — jednoiposoban stan, fotografija 1">
+    <img id="hero-img" src="/oplenacka/images/1.jpg" data-n="1" onload="imgOk(this)" onerror="fixImg(this)" loading="eager" fetchpriority="high" decoding="async" alt="Oplenačka, Rakovica — jednoiposoban stan, fotografija 1">
   </div>
 
   <div class="prop-price-row">
@@ -349,17 +390,17 @@ function fixImg(img){
   <div class="section-eyebrow">Fotografije</div>
   <h2 class="section-title">Galerija <em>fotografija</em></h2>
   <div class="gal-grid">
-    <div onclick="openLightbox(0)"><img src="/oplenacka/images/1.jpg" data-n="1" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 1" loading="lazy"></div>
-    <div onclick="openLightbox(1)"><img src="/oplenacka/images/2.jpg" data-n="2" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 2" loading="lazy"></div>
-    <div onclick="openLightbox(2)"><img src="/oplenacka/images/3.jpg" data-n="3" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 3" loading="lazy"></div>
-    <div onclick="openLightbox(3)"><img src="/oplenacka/images/4.jpg" data-n="4" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 4" loading="lazy"></div>
-    <div onclick="openLightbox(4)"><img src="/oplenacka/images/5.jpg" data-n="5" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 5" loading="lazy"></div>
-    <div onclick="openLightbox(5)"><img src="/oplenacka/images/6.jpg" data-n="6" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 6" loading="lazy"></div>
-    <div onclick="openLightbox(6)"><img src="/oplenacka/images/7.jpg" data-n="7" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 7" loading="lazy"></div>
-    <div onclick="openLightbox(7)"><img src="/oplenacka/images/8.jpg" data-n="8" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 8" loading="lazy"></div>
-    <div onclick="openLightbox(8)"><img src="/oplenacka/images/9.jpg" data-n="9" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 9" loading="lazy"></div>
-    <div onclick="openLightbox(9)"><img src="/oplenacka/images/10.jpg" data-n="10" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 10" loading="lazy"></div>
-    <div onclick="openLightbox(10)"><img src="/oplenacka/images/11.jpg" data-n="11" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 11" loading="lazy"></div>
+    <div onclick="openLightbox(0)"><img src="/oplenacka/images/1.jpg" data-n="1" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 1" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(1)"><img src="/oplenacka/images/2.jpg" data-n="2" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 2" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(2)"><img src="/oplenacka/images/3.jpg" data-n="3" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 3" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(3)"><img src="/oplenacka/images/4.jpg" data-n="4" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 4" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(4)"><img src="/oplenacka/images/5.jpg" data-n="5" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 5" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(5)"><img src="/oplenacka/images/6.jpg" data-n="6" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 6" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(6)"><img src="/oplenacka/images/7.jpg" data-n="7" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 7" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(7)"><img src="/oplenacka/images/8.jpg" data-n="8" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 8" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(8)"><img src="/oplenacka/images/9.jpg" data-n="9" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 9" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(9)"><img src="/oplenacka/images/10.jpg" data-n="10" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 10" loading="lazy" decoding="async"></div>
+    <div onclick="openLightbox(10)"><img src="/oplenacka/images/11.jpg" data-n="11" onload="imgOk(this)" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 11" loading="lazy" decoding="async"></div>
   </div>
 </section>
 
@@ -418,18 +459,16 @@ function fixImg(img){
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
   <button class="lightbox-nav lightbox-prev" onclick="navLightbox(-1)">‹</button>
-  <img id="lightbox-img" src="" alt="">
+  <img id="lightbox-img" alt="Fotografija stana" onload="imgOk(this)" onerror="fixImg(this)" draggable="false">
   <button class="lightbox-nav lightbox-next" onclick="navLightbox(1)">›</button>
   <div class="lightbox-counter" id="lightbox-counter"></div>
 </div>
 
 <script>
-var galleryImages = [
-  "/oplenacka/images/1.jpg","/oplenacka/images/2.jpg","/oplenacka/images/3.jpg","/oplenacka/images/4.jpg",
-  "/oplenacka/images/5.jpg","/oplenacka/images/6.jpg","/oplenacka/images/7.jpg","/oplenacka/images/8.jpg",
-  "/oplenacka/images/9.jpg","/oplenacka/images/10.jpg","/oplenacka/images/11.jpg"
-];
+var TOTAL = 11;
 var lbIndex = 0;
+var lb = document.getElementById('lightbox');
+var lbImg = document.getElementById('lightbox-img');
 
 function toggleStanModal() {
   document.getElementById('stanModalOverlay').classList.toggle('active');
@@ -437,47 +476,122 @@ function toggleStanModal() {
 
 function openLightbox(i) {
   lbIndex = i;
+  lbImg.style.transition = 'none'; lbImg.style.transform = ''; lbImg.style.opacity = '';
   updateLightbox();
-  document.getElementById('lightbox').classList.add('open');
+  lb.classList.add('open');
   document.body.style.overflow = 'hidden';
 }
 function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
+  lb.classList.remove('open', 'loading');
+  lbImg.style.transform = ''; lbImg.style.opacity = '';
   document.body.style.overflow = '';
 }
 function navLightbox(dir) {
-  lbIndex = (lbIndex + dir + galleryImages.length) % galleryImages.length;
+  lbIndex = (lbIndex + dir + TOTAL) % TOTAL;
   updateLightbox();
 }
-function updateLightbox() {
-  var g = document.querySelectorAll('.gal-grid img')[lbIndex];
-  document.getElementById('lightbox-img').src = g ? g.src : galleryImages[lbIndex];
-  document.getElementById('lightbox-counter').textContent = (lbIndex+1) + " / " + galleryImages.length;
+function preloadNum(n) {
+  if (imgFound[n]) { var p = new Image(); p.src = imgFound[n]; return; }
+  var g = document.querySelector('.gal-grid img[data-n="'+n+'"]');
+  if (g && g.loading === 'lazy') g.loading = 'eager';
 }
-document.getElementById('lightbox').addEventListener('click', function(e){
-  if (e.target.id === 'lightbox') closeLightbox();
+function updateLightbox() {
+  var n = String(lbIndex + 1);
+  if (!imgFound[n]) lb.classList.add('loading'); else lb.classList.remove('loading');
+  loadImg(lbImg, n);
+  document.getElementById('lightbox-counter').textContent = (lbIndex+1) + " / " + TOTAL;
+  /* unapred učitaj susedne slike da listanje bude bez čekanja */
+  preloadNum(((lbIndex + 1) % TOTAL) + 1);
+  preloadNum(((lbIndex - 1 + TOTAL) % TOTAL) + 1);
+}
+lb.addEventListener('click', function(e){
+  if (e.target === lb) closeLightbox();
 });
 document.addEventListener('keydown', function(e){
-  if (!document.getElementById('lightbox').classList.contains('open')) return;
+  if (!lb.classList.contains('open')) return;
   if (e.key === 'Escape') closeLightbox();
   if (e.key === 'ArrowLeft') navLightbox(-1);
   if (e.key === 'ArrowRight') navLightbox(1);
 });
 
-/* SWIPE (touch) navigacija — radi zajedno sa strelicama */
-var touchStartX = 0;
-var touchEndX = 0;
-document.getElementById('lightbox').addEventListener('touchstart', function(e){
-  touchStartX = e.changedTouches[0].screenX;
+/* SWIPE — slika prati prst; levo/desno menja sliku, povlačenje nadole zatvara */
+var tStartX = 0, tStartY = 0, tDX = 0, tDY = 0, tTime = 0, tAxis = null, tActive = false, tBusy = false;
+lb.addEventListener('touchstart', function(e){
+  if (e.touches.length !== 1 || tBusy) { tActive = false; return; }
+  if (e.target.closest && e.target.closest('button')) { tActive = false; return; }
+  tActive = true; tAxis = null; tDX = 0; tDY = 0; tTime = Date.now();
+  tStartX = e.touches[0].clientX; tStartY = e.touches[0].clientY;
+  lbImg.style.transition = 'none';
 }, { passive:true });
-document.getElementById('lightbox').addEventListener('touchend', function(e){
-  touchEndX = e.changedTouches[0].screenX;
-  var diff = touchEndX - touchStartX;
-  if (Math.abs(diff) > 40) {
-    if (diff < 0) navLightbox(1); else navLightbox(-1);
+lb.addEventListener('touchmove', function(e){
+  if (!tActive) return;
+  if (e.touches.length !== 1) { tActive = false; resetImg(); return; }
+  tDX = e.touches[0].clientX - tStartX;
+  tDY = e.touches[0].clientY - tStartY;
+  if (!tAxis && (Math.abs(tDX) > 8 || Math.abs(tDY) > 8)) tAxis = Math.abs(tDX) > Math.abs(tDY) ? 'x' : 'y';
+  if (tAxis === 'x') {
+    e.preventDefault();
+    lbImg.style.transform = 'translateX(' + tDX + 'px)';
+  } else if (tAxis === 'y') {
+    e.preventDefault();
+    var d = Math.max(0, tDY);
+    lbImg.style.transform = 'translateY(' + d + 'px) scale(' + (1 - Math.min(d/1500, .15)) + ')';
+    lbImg.style.opacity = String(1 - Math.min(d/500, .6));
+  }
+}, { passive:false });
+lb.addEventListener('touchend', function(){
+  if (!tActive) return;
+  tActive = false;
+  var dt = Date.now() - tTime;
+  var w = window.innerWidth;
+  var flick = dt < 300 && Math.abs(tDX) > 30;
+  if (tAxis === 'x' && (Math.abs(tDX) > w * 0.18 || flick)) {
+    var dir = tDX < 0 ? 1 : -1;
+    tBusy = true;
+    lbImg.style.transition = 'transform .2s ease-out, opacity .2s ease-out';
+    lbImg.style.transform = 'translateX(' + (-dir * w) + 'px)';
+    lbImg.style.opacity = '0';
+    setTimeout(function(){
+      lbImg.style.transition = 'none';
+      lbImg.style.transform = 'translateX(' + (dir * w * 0.35) + 'px)';
+      navLightbox(dir);
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){
+        lbImg.style.transition = 'transform .25s ease-out, opacity .25s ease-out';
+        lbImg.style.transform = '';
+        lbImg.style.opacity = '';
+        setTimeout(function(){ tBusy = false; }, 250);
+      }); });
+    }, 200);
+  } else if (tAxis === 'y' && tDY > 110) {
+    closeLightbox();
+  } else {
+    resetImg();
   }
 }, { passive:true });
+lb.addEventListener('touchcancel', function(){ tActive = false; resetImg(); }, { passive:true });
+function resetImg(){
+  lbImg.style.transition = 'transform .25s ease-out, opacity .25s ease-out';
+  lbImg.style.transform = ''; lbImg.style.opacity = '';
+}
 
+/* NASLOVNA SLIKA — sigurnosna provera: ako se nije prikazala, pokušaj ponovo */
+function heroCheck(){
+  var h = document.getElementById('hero-img');
+  if (!h || (h.complete && h.naturalWidth > 0)) { if (h) h.classList.add('loaded'); return; }
+  if (h.complete) { h.setAttribute('data-tried',''); loadImg(h, '1'); }
+}
+document.querySelectorAll('img[data-n]').forEach(function(img){
+  if (img.complete && img.naturalWidth > 0) imgOk(img);
+});
+setTimeout(heroCheck, 1500);
+window.addEventListener('load', function(){
+  heroCheck();
+  /* posle naslovne, polako učitaj i ostale slike iz galerije */
+  setTimeout(function(){
+    document.querySelectorAll('.gal-grid img').forEach(function(g){ g.loading = 'eager'; });
+  }, 800);
+});
+window.addEventListener('pageshow', heroCheck);
 </script>
 
 </body>
