@@ -251,6 +251,17 @@ footer {
 .footer-text { color:var(--gray); font-size:.75rem; letter-spacing:1px; }
 @media (max-width:700px) { footer { flex-direction:column; text-align:center; } }
 </style>
+<script>
+/* Slike: probaj redom sve nastavke dok se slika ne učita */
+var IMG_EXTS=['jpg','jpeg','JPG','JPEG','png','PNG','webp','WEBP'];
+function fixImg(img){
+  var n=img.getAttribute('data-n');
+  var i=parseInt(img.getAttribute('data-ext-i')||'0',10)+1;
+  if(i>=IMG_EXTS.length){ img.onerror=null; return; }
+  img.setAttribute('data-ext-i',i);
+  img.src='/oplenacka/images/'+n+'.'+IMG_EXTS[i];
+}
+</script>
 </head>
 <body>
 
@@ -272,7 +283,7 @@ footer {
   <div class="prop-loc">📍 <span>Rakovica</span> · Oplenačka, Petlovo brdo</div>
 
   <div class="prop-main-img" onclick="openLightbox(0)">
-    <img src="/oplenacka/images/1.jpg" alt="Oplenačka, Rakovica — jednoiposoban stan, fotografija 1">
+    <img src="/oplenacka/images/1.jpg" data-n="1" onerror="fixImg(this)" alt="Oplenačka, Rakovica — jednoiposoban stan, fotografija 1">
   </div>
 
   <div class="prop-price-row">
@@ -338,17 +349,17 @@ footer {
   <div class="section-eyebrow">Fotografije</div>
   <h2 class="section-title">Galerija <em>fotografija</em></h2>
   <div class="gal-grid">
-    <div onclick="openLightbox(0)"><img src="/oplenacka/images/1.jpg" alt="Stan u Oplenačkoj ulici — fotografija 1" loading="lazy"></div>
-    <div onclick="openLightbox(1)"><img src="/oplenacka/images/2.jpg" alt="Stan u Oplenačkoj ulici — fotografija 2" loading="lazy"></div>
-    <div onclick="openLightbox(2)"><img src="/oplenacka/images/3.jpg" alt="Stan u Oplenačkoj ulici — fotografija 3" loading="lazy"></div>
-    <div onclick="openLightbox(3)"><img src="/oplenacka/images/4.jpg" alt="Stan u Oplenačkoj ulici — fotografija 4" loading="lazy"></div>
-    <div onclick="openLightbox(4)"><img src="/oplenacka/images/5.jpg" alt="Stan u Oplenačkoj ulici — fotografija 5" loading="lazy"></div>
-    <div onclick="openLightbox(5)"><img src="/oplenacka/images/6.jpg" alt="Stan u Oplenačkoj ulici — fotografija 6" loading="lazy"></div>
-    <div onclick="openLightbox(6)"><img src="/oplenacka/images/7.jpg" alt="Stan u Oplenačkoj ulici — fotografija 7" loading="lazy"></div>
-    <div onclick="openLightbox(7)"><img src="/oplenacka/images/8.jpg" alt="Stan u Oplenačkoj ulici — fotografija 8" loading="lazy"></div>
-    <div onclick="openLightbox(8)"><img src="/oplenacka/images/9.jpg" alt="Stan u Oplenačkoj ulici — fotografija 9" loading="lazy"></div>
-    <div onclick="openLightbox(9)"><img src="/oplenacka/images/10.jpg" alt="Stan u Oplenačkoj ulici — fotografija 10" loading="lazy"></div>
-    <div onclick="openLightbox(10)"><img src="/oplenacka/images/11.jpg" alt="Stan u Oplenačkoj ulici — fotografija 11" loading="lazy"></div>
+    <div onclick="openLightbox(0)"><img src="/oplenacka/images/1.jpg" data-n="1" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 1" loading="lazy"></div>
+    <div onclick="openLightbox(1)"><img src="/oplenacka/images/2.jpg" data-n="2" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 2" loading="lazy"></div>
+    <div onclick="openLightbox(2)"><img src="/oplenacka/images/3.jpg" data-n="3" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 3" loading="lazy"></div>
+    <div onclick="openLightbox(3)"><img src="/oplenacka/images/4.jpg" data-n="4" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 4" loading="lazy"></div>
+    <div onclick="openLightbox(4)"><img src="/oplenacka/images/5.jpg" data-n="5" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 5" loading="lazy"></div>
+    <div onclick="openLightbox(5)"><img src="/oplenacka/images/6.jpg" data-n="6" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 6" loading="lazy"></div>
+    <div onclick="openLightbox(6)"><img src="/oplenacka/images/7.jpg" data-n="7" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 7" loading="lazy"></div>
+    <div onclick="openLightbox(7)"><img src="/oplenacka/images/8.jpg" data-n="8" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 8" loading="lazy"></div>
+    <div onclick="openLightbox(8)"><img src="/oplenacka/images/9.jpg" data-n="9" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 9" loading="lazy"></div>
+    <div onclick="openLightbox(9)"><img src="/oplenacka/images/10.jpg" data-n="10" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 10" loading="lazy"></div>
+    <div onclick="openLightbox(10)"><img src="/oplenacka/images/11.jpg" data-n="11" onerror="fixImg(this)" alt="Stan u Oplenačkoj ulici — fotografija 11" loading="lazy"></div>
   </div>
 </section>
 
@@ -439,7 +450,8 @@ function navLightbox(dir) {
   updateLightbox();
 }
 function updateLightbox() {
-  document.getElementById('lightbox-img').src = galleryImages[lbIndex];
+  var g = document.querySelectorAll('.gal-grid img')[lbIndex];
+  document.getElementById('lightbox-img').src = g ? g.src : galleryImages[lbIndex];
   document.getElementById('lightbox-counter').textContent = (lbIndex+1) + " / " + galleryImages.length;
 }
 document.getElementById('lightbox').addEventListener('click', function(e){
